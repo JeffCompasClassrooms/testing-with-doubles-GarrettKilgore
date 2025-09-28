@@ -1,7 +1,6 @@
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 import pytest
 import json
 from squirrel_server import SquirrelServerHandler
@@ -130,3 +129,141 @@ def describe_squirrel_server():
 
         assert 404 in fake.responses
         mock_db.return_value.getSquirrel.assert_called_once_with("99")
+        
+
+def describe_handleSquirrelsIndex():
+
+    def it_returns_200_status_code(mocker):
+        fake = FakeRequest()
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+        mock_db.return_value.getSquirrels.return_value = [{"id": 1, "name": "Fluffy", "size": "large"}]
+
+        fake.handleSquirrelsIndex()
+        assert 200 in fake.responses
+
+    def it_sets_content_type_header_to_json(mocker):
+        fake = FakeRequest()
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+        mock_db.return_value.getSquirrels.return_value = [{"id": 1, "name": "Fluffy", "size": "large"}]
+
+        fake.handleSquirrelsIndex()
+        assert ("Content-Type", "application/json") in fake.sent_headers
+
+    def it_writes_json_to_wfile(mocker):
+        fake = FakeRequest()
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+        mock_db.return_value.getSquirrels.return_value = [{"id": 1, "name": "Fluffy", "size": "large"}]
+
+        fake.handleSquirrelsIndex()
+        assert b"Fluffy" in fake.wfile.data
+
+    def it_calls_getSquirrels_once(mocker):
+        fake = FakeRequest()
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+        mock_db.return_value.getSquirrels.return_value = []
+
+        fake.handleSquirrelsIndex()
+        mock_db.return_value.getSquirrels.assert_called_once()
+
+
+def describe_handleSquirrelsRetrieve():
+
+    def it_returns_200_if_squirrel_found(mocker):
+        fake = FakeRequest(path="/squirrels/1")
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+        mock_db.return_value.getSquirrel.return_value = {"id": 1, "name": "Fluffy", "size": "large"}
+
+        fake.handleSquirrelsRetrieve("1")
+        assert 200 in fake.responses
+
+    def it_returns_404_if_squirrel_missing(mocker):
+        fake = FakeRequest(path="/squirrels/99")
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+        mock_db.return_value.getSquirrel.return_value = None
+
+        fake.handleSquirrelsRetrieve("99")
+        assert 404 in fake.responses
+
+    def it_calls_getSquirrel_with_correct_id(mocker):
+        fake = FakeRequest(path="/squirrels/42")
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+        mock_db.return_value.getSquirrel.return_value = {"id": 42}
+
+        fake.handleSquirrelsRetrieve("42")
+        mock_db.return_value.getSquirrel.assert_called_once_with("42")
+
+
+def describe_handleSquirrelsCreate():
+
+    def it_returns_201_on_success(mocker):
+        body = "name=Fluffy&size=large"
+        fake = FakeRequest(method="POST", path="/squirrels", body=body)
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+
+        fake.handleSquirrelsCreate()
+        assert 201 in fake.responses
+
+    def it_calls_createSquirrel_with_correct_data(mocker):
+        body = "name=Fluffy&size=large"
+        fake = FakeRequest(method="POST", path="/squirrels", body=body)
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+
+        fake.handleSquirrelsCreate()
+        mock_db.return_value.createSquirrel.assert_called_once_with("Fluffy", "large")
+
+
+def describe_handleSquirrelsUpdate():
+
+    def it_returns_204_if_squirrel_exists(mocker):
+        body = "name=Fluffy&size=small"
+        fake = FakeRequest(method="PUT", path="/squirrels/1", body=body)
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+        mock_db.return_value.getSquirrel.return_value = {"id": 1}
+
+        fake.handleSquirrelsUpdate("1")
+        assert 204 in fake.responses
+
+    def it_returns_404_if_squirrel_missing(mocker):
+        fake = FakeRequest(method="PUT", path="/squirrels/99", body="name=Ghost&size=tiny")
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+        mock_db.return_value.getSquirrel.return_value = None
+
+        fake.handleSquirrelsUpdate("99")
+        assert 404 in fake.responses
+
+    def it_calls_updateSquirrel_with_correct_data(mocker):
+        body = "name=Fluffy&size=small"
+        fake = FakeRequest(method="PUT", path="/squirrels/1", body=body)
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+        mock_db.return_value.getSquirrel.return_value = {"id": 1}
+
+        fake.handleSquirrelsUpdate("1")
+        mock_db.return_value.updateSquirrel.assert_called_once_with("1", "Fluffy", "small")
+
+
+def describe_handleSquirrelsDelete():
+
+    def it_returns_204_if_squirrel_exists(mocker):
+        fake = FakeRequest(path="/squirrels/1")
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+        mock_db.return_value.getSquirrel.return_value = {"id": 1}
+
+        fake.handleSquirrelsDelete("1")
+        assert 204 in fake.responses
+
+    def it_returns_404_if_squirrel_missing(mocker):
+        fake = FakeRequest(path="/squirrels/99")
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+        mock_db.return_value.getSquirrel.return_value = None
+
+        fake.handleSquirrelsDelete("99")
+        assert 404 in fake.responses
+
+    def it_calls_deleteSquirrel_with_correct_id(mocker):
+        fake = FakeRequest(path="/squirrels/1")
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+        mock_db.return_value.getSquirrel.return_value = {"id": 1}
+
+        fake.handleSquirrelsDelete("1")
+        mock_db.return_value.deleteSquirrel.assert_called_once_with("1")
+
