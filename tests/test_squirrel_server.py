@@ -43,92 +43,6 @@ class FakeWFile:
 
     def write(self, b):
         self.data += b
-
-def describe_squirrel_server():
-
-    def test_handleSquirrelsIndex(mocker):
-        fake = FakeRequest()
-        mock_db = mocker.patch("squirrel_server.SquirrelDB")
-        mock_db.return_value.getSquirrels.return_value = [{"id": 1, "name": "Fluffy", "size": "large"}]
-
-        fake.handleSquirrelsIndex()
-
-        assert 200 in fake.responses
-        assert ("Content-Type", "application/json") in fake.sent_headers
-        assert b"Fluffy" in fake.wfile.data
-        mock_db.return_value.getSquirrels.assert_called_once()
-
-    def test_handleSquirrelsRetrieve_found(mocker):
-        fake = FakeRequest(path="/squirrels/1")
-        mock_db = mocker.patch("squirrel_server.SquirrelDB")
-        mock_db.return_value.getSquirrel.return_value = {"id": 1, "name": "Fluffy", "size": "large"}
-
-        fake.handleSquirrelsRetrieve("1")
-
-        assert 200 in fake.responses
-        assert b"Fluffy" in fake.wfile.data
-        mock_db.return_value.getSquirrel.assert_called_once_with("1")
-
-    def test_handleSquirrelsRetrieve_not_found(mocker):
-        fake = FakeRequest(path="/squirrels/99")
-        mock_db = mocker.patch("squirrel_server.SquirrelDB")
-        mock_db.return_value.getSquirrel.return_value = None
-
-        fake.handleSquirrelsRetrieve("99")
-
-        assert 404 in fake.responses
-        mock_db.return_value.getSquirrel.assert_called_once_with("99")
-
-    def test_handleSquirrelsCreate(mocker):
-        body = "name=Fluffy&size=large"
-        fake = FakeRequest(method="POST", path="/squirrels", body=body)
-        mock_db = mocker.patch("squirrel_server.SquirrelDB")
-
-        fake.handleSquirrelsCreate()
-
-        assert 201 in fake.responses
-        mock_db.return_value.createSquirrel.assert_called_once_with("Fluffy", "large")
-
-    def test_handleSquirrelsUpdate_found(mocker):
-        body = "name=Fluffy&size=small"
-        fake = FakeRequest(method="PUT", path="/squirrels/1", body=body)
-        mock_db = mocker.patch("squirrel_server.SquirrelDB")
-        mock_db.return_value.getSquirrel.return_value = {"id": 1}
-
-        fake.handleSquirrelsUpdate("1")
-
-        assert 204 in fake.responses
-        mock_db.return_value.updateSquirrel.assert_called_once_with("1", "Fluffy", "small")
-
-    def test_handleSquirrelsUpdate_not_found(mocker):
-        fake = FakeRequest(method="PUT", path="/squirrels/99", body="name=Ghost&size=tiny")
-        mock_db = mocker.patch("squirrel_server.SquirrelDB")
-        mock_db.return_value.getSquirrel.return_value = None
-
-        fake.handleSquirrelsUpdate("99")
-
-        assert 404 in fake.responses
-        mock_db.return_value.getSquirrel.assert_called_once_with("99")
-
-    def test_handleSquirrelsDelete_found(mocker):
-        fake = FakeRequest(path="/squirrels/1")
-        mock_db = mocker.patch("squirrel_server.SquirrelDB")
-        mock_db.return_value.getSquirrel.return_value = {"id": 1}
-
-        fake.handleSquirrelsDelete("1")
-
-        assert 204 in fake.responses
-        mock_db.return_value.deleteSquirrel.assert_called_once_with("1")
-
-    def test_handleSquirrelsDelete_not_found(mocker):
-        fake = FakeRequest(path="/squirrels/99")
-        mock_db = mocker.patch("squirrel_server.SquirrelDB")
-        mock_db.return_value.getSquirrel.return_value = None
-
-        fake.handleSquirrelsDelete("99")
-
-        assert 404 in fake.responses
-        mock_db.return_value.getSquirrel.assert_called_once_with("99")
         
 
 def describe_handleSquirrelsIndex():
@@ -267,3 +181,13 @@ def describe_handleSquirrelsDelete():
         fake.handleSquirrelsDelete("1")
         mock_db.return_value.deleteSquirrel.assert_called_once_with("1")
 
+
+def describe_handle404():
+
+    def it_sets_404_status_and_plain_text(mocker):
+        fake = FakeRequest()
+        fake.handle404()
+
+        assert 404 in fake.responses
+        assert ("Content-Type", "text/plain") in fake.sent_headers
+        assert b"404 Not Found" in fake.wfile.data
