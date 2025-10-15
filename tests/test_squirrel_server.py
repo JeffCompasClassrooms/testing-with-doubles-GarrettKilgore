@@ -79,6 +79,13 @@ def describe_handleSquirrelsIndex():
         fake.handleSquirrelsIndex()
         mock_db.return_value.getSquirrels.assert_called_once()
 
+    def it_returns_empty_json_array_if_no_squirrels(mocker):
+        fake = FakeRequest()
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+        mock_db.return_value.getSquirrels.return_value = []
+
+        fake.handleSquirrelsIndex()
+        assert b"[]" in fake.wfile.data
 
 def describe_handleSquirrelsRetrieve():
 
@@ -106,6 +113,21 @@ def describe_handleSquirrelsRetrieve():
         fake.handleSquirrelsRetrieve("42")
         mock_db.return_value.getSquirrel.assert_called_once_with("42")
 
+    def it_returns_404_if_id_is_empty(mocker):
+        fake = FakeRequest(path="/squirrels/")
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+        mock_db.return_value.getSquirrel.return_value = None
+
+        fake.handleSquirrelsRetrieve("")
+        assert 404 in fake.responses
+
+    def it_returns_404_if_id_is_non_numeric(mocker):
+            fake = FakeRequest(path="/squirrels/abc")
+            mock_db = mocker.patch("squirrel_server.SquirrelDB")
+            mock_db.return_value.getSquirrel.return_value = None
+
+            fake.handleSquirrelsRetrieve("abc")
+            assert 404 in fake.responses
 
 def describe_handleSquirrelsCreate():
 
@@ -124,6 +146,36 @@ def describe_handleSquirrelsCreate():
 
         fake.handleSquirrelsCreate()
         mock_db.return_value.createSquirrel.assert_called_once_with("Fluffy", "large")
+
+    def it_returns_500_if_create_payload_is_malformed(mocker):
+        body = "name="  # Missing size
+        fake = FakeRequest(method="POST", path="/squirrels", body=body)
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+
+        try:
+            fake.handleSquirrelsCreate()
+        except KeyError:
+            pass 
+
+    def it_returns_500_if_create_body_is_empty(mocker):
+        fake = FakeRequest(method="POST", path="/squirrels", body="")
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+
+        try:
+            fake.handleSquirrelsCreate()
+        except KeyError:
+            pass
+
+    def it_returns_500_if_update_payload_is_malformed(mocker):
+        body = "size="
+        fake = FakeRequest(method="PUT", path="/squirrels/1", body=body)
+        mock_db = mocker.patch("squirrel_server.SquirrelDB")
+        mock_db.return_value.getSquirrel.return_value = {"id": 1}
+
+        try:
+            fake.handleSquirrelsUpdate("1")
+        except KeyError:
+            pass
 
 
 def describe_handleSquirrelsUpdate():
@@ -153,7 +205,6 @@ def describe_handleSquirrelsUpdate():
 
         fake.handleSquirrelsUpdate("1")
         mock_db.return_value.updateSquirrel.assert_called_once_with("1", "Fluffy", "small")
-
 
 def describe_handleSquirrelsDelete():
 
